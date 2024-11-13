@@ -12,6 +12,7 @@ itsdangerous==2.2.0
 Jinja2==3.1.4
 MarkupSafe==3.0.2
 pycparser==2.22
+python-dotenv==1.0.0  # Added python-dotenv
 requests==2.26.0
 urllib3==1.26.20
 Werkzeug==2.0.3
