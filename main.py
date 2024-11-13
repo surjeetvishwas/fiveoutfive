@@ -3,12 +3,16 @@ from flask import Flask, redirect, url_for, session, request, jsonify, render_te
 from authlib.integrations.flask_client import OAuth
 import requests
 from dotenv import load_dotenv
+from flask_talisman import Talisman
 
 # Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY")  # Use a secure secret key
+app.config["PREFERRED_URL_SCHEME"] = "https"  # Enforce HTTPS
+
+Talisman(app)  # Enforce HTTPS for all routes
 
 # Configurations for Google OAuth
 app.config["GOOGLE_CLIENT_ID"] = os.getenv("GOOGLE_CLIENT_ID")
@@ -22,7 +26,7 @@ google = oauth.register(
     client_id=app.config["GOOGLE_CLIENT_ID"],
     client_secret=app.config["GOOGLE_CLIENT_SECRET"],
     server_metadata_url=app.config["GOOGLE_DISCOVERY_URL"],
-    client_kwargs={"scope": "openid email profile https://www.googleapis.com/auth/business.manage"},  # Added GMB scope
+    client_kwargs={"scope": "openid email profile https://www.googleapis.com/auth/business.manage"},
 )
 
 # Airtable Configuration (use environment variables for security)
@@ -32,7 +36,7 @@ AIRTABLE_TABLE_NAME = 'All Merchants'
 
 @app.route("/")
 def index():
-    return render_template("signin.html")  # Render a simple page to sign in with Google
+    return render_template("signin.html")
 
 @app.route("/login")
 def login():
@@ -41,7 +45,6 @@ def login():
 
 @app.route("/authorize")
 def authorize():
-    # Get authorization token and user info
     token = google.authorize_access_token()
     user_info = token.get("userinfo")
 
@@ -54,12 +57,10 @@ def authorize():
         "token": token["id_token"]
     }
 
-    # Fetch GMB ID
     gmb_id = fetch_gmb_id(token)
 
-    # Now save this user data directly to Airtable
     try:
-        user_data["GoogleBusinessId"] = gmb_id  # Add GMB ID to the data
+        user_data["GoogleBusinessId"] = gmb_id
         save_to_airtable(user_data)
         return redirect(url_for("success"))
     except Exception as e:
@@ -67,17 +68,12 @@ def authorize():
 
 @app.route("/success")
 def success():
-    # Redirect to the thank you page on your Squarespace site
     return redirect("https://www.fiveoutta5.com/thank-you")
 
 def fetch_gmb_id(token):
-    """
-    Fetch the Google My Business ID for the authenticated user.
-    """
-    # Make a request to the Google My Business API
     url = "https://mybusinessbusinessinformation.googleapis.com/v1/accounts"
     headers = {
-        "Authorization": f"Bearer {token['access_token']}",  # Use the access token to authenticate
+        "Authorization": f"Bearer {token['access_token']}",
     }
     
     response = requests.get(url, headers=headers)
@@ -87,10 +83,9 @@ def fetch_gmb_id(token):
 
     data = response.json()
     
-    # Extract the first business account ID (if it exists)
     if "accounts" in data:
         business_account = data["accounts"][0]
-        return business_account.get("name")  # Return the account ID (or any other identifier)
+        return business_account.get("name")
     
     return "No GMB ID found"
 
@@ -104,7 +99,7 @@ def save_to_airtable(user_data):
         "fields": {
             "Email": user_data["email"],
             "Name": user_data["name"],
-            "GoogleBusinessId": user_data["GoogleBusinessId"],  # Save GMB ID
+            "GoogleBusinessId": user_data["GoogleBusinessId"],
             "ReviewManagementAllowed": True,
             "LeadSource": "Google Sign In"
         }
