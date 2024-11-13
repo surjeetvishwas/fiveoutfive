@@ -1,0 +1,16 @@
+Authlib==1.0.0
+certifi==2024.8.30
+cffi==1.17.1
+charset-normalizer==2.0.12
+click==8.1.7
+colorama==0.4.6
+cryptography==43.0.3
+Flask==2.1.0
+idna==3.10
+itsdangerous==2.2.0
+Jinja2==3.1.4
+MarkupSafe==3.0.2
+pycparser==2.22
+requests==2.26.0
+urllib3==1.26.20
+Werkzeug==2.0.3
