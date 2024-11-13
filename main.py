@@ -4,17 +4,20 @@ from authlib.integrations.flask_client import OAuth
 import requests
 from dotenv import load_dotenv
 from flask_talisman import Talisman
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET_KEY")  # Use a secure secret key
-app.config["PREFERRED_URL_SCHEME"] = "https"  # Enforce HTTPS
+app.secret_key = os.getenv("FLASK_SECRET_KEY")
 
-Talisman(app)  # Enforce HTTPS for all routes
+# Enforce HTTPS
+app.config["PREFERRED_URL_SCHEME"] = "https"
+Talisman(app, force_https=True)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
-# Configurations for Google OAuth
+# Google OAuth Configurations
 app.config["GOOGLE_CLIENT_ID"] = os.getenv("GOOGLE_CLIENT_ID")
 app.config["GOOGLE_CLIENT_SECRET"] = os.getenv("GOOGLE_CLIENT_SECRET")
 app.config["GOOGLE_DISCOVERY_URL"] = "https://accounts.google.com/.well-known/openid-configuration"
