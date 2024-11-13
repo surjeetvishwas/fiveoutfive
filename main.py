@@ -1,7 +1,7 @@
+import os
 from flask import Flask, redirect, url_for, session, request, jsonify, render_template
 from authlib.integrations.flask_client import OAuth
 import requests
-import os
 
 app = Flask(__name__)
 app.secret_key = 'random_secret_key'  # Replace with a secure secret key
@@ -30,27 +30,23 @@ def index():
 
 @app.route("/login")
 def login():
-    # Redirect to Google's OAuth 2.0 server for authentication
     redirect_uri = url_for("authorize", _external=True)
     return google.authorize_redirect(redirect_uri)
 
 @app.route("/authorize")
 def authorize():
-    # Handles the response from Google and retrieves user info
     token = google.authorize_access_token()
-    user_info = token.get("userinfo")  # Get user info from token
+    user_info = token.get("userinfo")
 
     if not user_info:
         return jsonify({"error": "Failed to retrieve user info"}), 400
 
-    # Prepare user data to send to Cloud Run API
     user_data = {
         "email": user_info["email"],
         "name": user_info["name"],
         "token": token["id_token"]
     }
 
-    # Send user data to Cloud Run API to save in Airtable
     try:
         response = requests.post(CLOUD_RUN_API_URL, json=user_data)
         response_data = response.json()
@@ -68,4 +64,5 @@ def success():
     return "User data saved successfully in Airtable!"
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.getenv("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
