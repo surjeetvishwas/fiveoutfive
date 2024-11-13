@@ -67,7 +67,8 @@ def authorize():
 
 @app.route("/success")
 def success():
-    return "User data saved successfully to Airtable!"
+    # Redirect to the thank you page on your Squarespace site
+    return redirect("https://www.fiveoutta5.com/thank-you")
 
 def fetch_gmb_id(token):
     """
@@ -115,4 +116,3 @@ def save_to_airtable(user_data):
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=int(os.getenv("PORT", 8080)))
-
