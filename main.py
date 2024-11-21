@@ -44,7 +44,12 @@ def index():
 @app.route("/login")
 def login():
     redirect_uri = url_for("authorize", _external=True)
-    return google.authorize_redirect(redirect_uri, prompt="consent")
+    return google.authorize_redirect(
+        redirect_uri, 
+        prompt="consent", 
+        access_type="offline",  # Offline ensures refresh token is granted
+        include_granted_scopes="false"  # Forces reauthorization of all scopes
+    )
 
 
 @app.route("/authorize")
