@@ -49,7 +49,7 @@ def login():
         redirect_uri,
         prompt="consent",
         access_type="offline",
-        include_granted_scopes="false",
+        include_granted_scopes="true",
     )
 
 @app.route("/authorize")
