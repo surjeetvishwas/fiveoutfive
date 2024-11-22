@@ -60,7 +60,7 @@ def authorize():
         return jsonify({"error": "Failed to retrieve access token"}), 400
 
     try:
-        # Fetch user info manually using User Info API
+        # Fetch user info manually using the User Info API
         user_info = fetch_user_info(access_token)
         user_data = {
             "email": user_info.get("email"),
@@ -79,6 +79,9 @@ def success():
     return redirect("https://www.fiveoutta5.com/thank-you")
 
 def fetch_user_info(access_token):
+    """
+    Fetches user's email and profile information using the access token.
+    """
     url = "https://www.googleapis.com/oauth2/v2/userinfo"
     headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.get(url, headers=headers)
@@ -87,6 +90,9 @@ def fetch_user_info(access_token):
     raise Exception(f"Failed to fetch user info: {response.text}")
 
 def fetch_gmb_id(token):
+    """
+    Fetches the Google My Business ID using the access token.
+    """
     url = "https://mybusinessbusinessinformation.googleapis.com/v1/accounts"
     headers = {
         "Authorization": f"Bearer {token['access_token']}",
@@ -106,6 +112,9 @@ def fetch_gmb_id(token):
     return "No GMB ID found"
 
 def save_to_airtable(user_data):
+    """
+    Saves user data to Airtable.
+    """
     url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
     headers = {
         "Authorization": f"Bearer {AIRTABLE_API_KEY}",
