@@ -85,9 +85,14 @@ def fetch_user_info(access_token):
     url = "https://www.googleapis.com/oauth2/v2/userinfo"
     headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.get(url, headers=headers)
+
     if response.status_code == 200:
         return response.json()
-    raise Exception(f"Failed to fetch user info: {response.text}")
+    elif response.status_code == 401:
+        raise Exception("Access token is invalid or expired. Please reauthenticate.")
+    else:
+        raise Exception(f"Failed to fetch user info: {response.text}")
+
 
 def fetch_gmb_id(token):
     """
