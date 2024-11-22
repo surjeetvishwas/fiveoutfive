@@ -29,7 +29,7 @@ google = oauth.register(
     client_id=app.config["GOOGLE_CLIENT_ID"],
     client_secret=app.config["GOOGLE_CLIENT_SECRET"],
     server_metadata_url=app.config["GOOGLE_DISCOVERY_URL"],
-    client_kwargs={"scope": "https://www.googleapis.com/auth/business.manage"},
+    client_kwargs={"scope": "email profile https://www.googleapis.com/auth/business.manage"},
 )
 
 # Airtable Configuration (use environment variables for security)
@@ -51,24 +51,23 @@ def login():
         include_granted_scopes="false"  # Forces reauthorization of all scopes
     )
 
-
 @app.route("/authorize")
 def authorize():
     token = google.authorize_access_token()
-    user_info = token.get("userinfo")
+    access_token = token.get("access_token")
 
-    if not user_info:
-        return jsonify({"error": "Failed to retrieve user info"}), 400
-
-    user_data = {
-        "email": user_info["email"],
-        "name": user_info["name"],
-        "token": token["id_token"]
-    }
-
-    gmb_id = fetch_gmb_id(token)
+    if not access_token:
+        return jsonify({"error": "Failed to retrieve access token"}), 400
 
     try:
+        # Fetch user info manually using User Info API
+        user_info = fetch_user_info(access_token)
+        user_data = {
+            "email": user_info.get("email"),
+            "name": user_info.get("name"),
+            "token": token["id_token"],
+        }
+        gmb_id = fetch_gmb_id(token)
         user_data["GoogleBusinessId"] = gmb_id
         save_to_airtable(user_data)
         return redirect(url_for("success"))
@@ -78,6 +77,14 @@ def authorize():
 @app.route("/success")
 def success():
     return redirect("https://www.fiveoutta5.com/thank-you")
+
+def fetch_user_info(access_token):
+    url = "https://www.googleapis.com/oauth2/v2/userinfo"
+    headers = {"Authorization": f"Bearer {access_token}"}
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        return response.json()
+    raise Exception(f"Failed to fetch user info: {response.text}")
 
 def fetch_gmb_id(token):
     url = "https://mybusinessbusinessinformation.googleapis.com/v1/accounts"
