@@ -70,12 +70,26 @@ def authorize_basic():
 
 @app.route("/request-additional-scopes")
 def request_additional_scopes():
-    # Step 2: Request additional scopes
+    if "user" not in session:
+        return redirect(url_for("index"))
+
+    user = session["user"]
+
+    # Prepare additional scopes (ensure they are strings)
+    additional_scopes = [
+        "https://www.googleapis.com/auth/business.manage"
+    ]
+
+    # Ensure user is signed in and fetch account info
     try:
-        redirect_uri = url_for("authorize_additional", _external=True)
+        # Reinitialize the OAuth client with new scopes
+        redirect_uri = url_for("authorize_additional_scopes", _external=True)
         return google.authorize_redirect(
             redirect_uri,
-            client_kwargs={"scope": "https://www.googleapis.com/auth/business.manage"},
+            prompt="consent",
+            access_type="offline",
+            include_granted_scopes="true",
+            state={"user": user},  # Pass the user back
         )
     except Exception as e:
         return jsonify({"error": "Error requesting additional scopes", "details": str(e)}), 500
