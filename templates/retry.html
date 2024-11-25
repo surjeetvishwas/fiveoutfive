@@ -3,46 +3,67 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Retry Permissions</title>
+    <title>Permission Required</title>
     <style>
-      body {
+      /* Reset styles */
+      * {
         margin: 0;
-        font-family: Arial, sans-serif;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Arial", sans-serif;
         display: flex;
         justify-content: center;
         align-items: center;
         min-height: 100vh;
-        background: linear-gradient(180deg, #ffffff, #f3f4f6);
+        background: linear-gradient(145deg, #f9f9f9, #e9ecef);
         color: #333;
+        overflow: hidden;
       }
 
       .container {
-        text-align: center;
-        padding: 40px;
         background: #ffffff;
-        border-radius: 12px;
-        box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.1);
-        max-width: 500px;
+        border-radius: 16px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+        padding: 40px 30px;
+        text-align: center;
+        max-width: 450px;
         width: 90%;
+        animation: fadeIn 1s ease;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
 
       .logo {
         font-size: 28px;
         font-weight: bold;
-        margin-bottom: 16px;
         color: #ff5c00;
+        margin-bottom: 16px;
+        text-transform: uppercase;
       }
 
       h1 {
         font-size: 24px;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
+        color: #222;
       }
 
       p {
         font-size: 16px;
+        color: #555;
         margin-bottom: 30px;
-        line-height: 1.5;
-        color: #666;
+        line-height: 1.6;
       }
 
       .button-container {
@@ -51,21 +72,46 @@
       }
 
       .retry-button {
-        display: inline-block;
-        text-decoration: none;
         background-color: #ff5c00;
         color: #ffffff;
         font-weight: bold;
         font-size: 16px;
         padding: 12px 24px;
         border-radius: 8px;
-        transition: background-color 0.3s ease;
+        text-decoration: none;
+        transition: all 0.3s ease;
         border: none;
       }
 
       .retry-button:hover {
         background-color: #e14a00;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(255, 92, 0, 0.4);
         cursor: pointer;
+      }
+
+      .retry-button:active {
+        transform: translateY(0);
+        box-shadow: none;
+      }
+
+      .info-message {
+        margin-top: 20px;
+        color: #777;
+        font-size: 14px;
+        opacity: 0;
+        animation: showInfo 0.5s ease forwards;
+      }
+
+      @keyframes showInfo {
+        from {
+          opacity: 0;
+          transform: translateY(5px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
     </style>
   </head>
@@ -78,8 +124,25 @@
         Please try again and ensure all requested permissions are allowed.
       </p>
       <div class="button-container">
-        <a href="{{ url_for('retry') }}" class="retry-button">Retry</a>
+        <button class="retry-button" id="retryButton">Retry</button>
       </div>
+      <div id="infoMessage" class="info-message"></div>
     </div>
+
+    <script>
+      // JavaScript for button interaction
+      const retryButton = document.getElementById("retryButton");
+      const infoMessage = document.getElementById("infoMessage");
+
+      retryButton.addEventListener("click", () => {
+        // Display an informational message
+        infoMessage.textContent = "Redirecting to request permissions again...";
+
+        // Redirect user to the retry route after a short delay
+        setTimeout(() => {
+          window.location.href = "{{ url_for('retry') }}";
+        }, 1000); // Adjust delay as needed
+      });
+    </script>
   </body>
 </html>
