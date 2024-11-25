@@ -58,27 +58,25 @@ def authorize():
     print("Token received:", token)  # Debugging
 
     access_token = token.get("access_token")
-    refresh_token = token.get("refresh_token")  # For refreshing if needed
+    granted_scopes = token.get("scope", "").split()
 
-    if not access_token:
-        return jsonify({"error": "Access token is missing"}), 400
+    required_scope = "https://www.googleapis.com/auth/business.manage"
+    if required_scope not in granted_scopes:
+        return render_template(
+            "permission_error.html",
+            error="Required permissions not granted. Please grant all permissions to proceed.",
+        )
 
     try:
-        # Refresh the token if necessary
-        if refresh_token and not access_token:
-            access_token = refresh_access_token(refresh_token)
-
-        # Fetch user info
+        # Fetch user info and process further
         user_info = fetch_user_info(access_token)
+        gmb_id = fetch_gmb_id({"access_token": access_token})
+
         user_data = {
             "email": user_info.get("email"),
             "name": user_info.get("name"),
-            "token": token["id_token"],
+            "GoogleBusinessId": gmb_id,
         }
-        
-        # Fetch GMB ID and save user data
-        gmb_id = fetch_gmb_id({"access_token": access_token})
-        user_data["GoogleBusinessId"] = gmb_id
         save_to_airtable(user_data)
 
         return redirect(url_for("success"))
