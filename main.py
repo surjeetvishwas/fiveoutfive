@@ -33,9 +33,9 @@ google = oauth.register(
 )
 
 # Airtable Configuration
-AIRTABLE_API_KEY = 'patrGInzrQiuBACnV.7283d83052558ebb51e72437c76cea77732bc61468461a86ef0a5f81fedaf1f0'
-AIRTABLE_BASE_ID = 'appgXzBGcdhiuervR'
-AIRTABLE_TABLE_NAME = 'All Merchants'
+AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
+AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID")
+AIRTABLE_TABLE_NAME = os.getenv("AIRTABLE_TABLE_NAME")
 
 
 @app.route("/")
@@ -66,8 +66,8 @@ def authorize():
     required_scope = "https://www.googleapis.com/auth/business.manage"
 
     if required_scope not in granted_scopes:
-        print("Missing required scope, retrying...")
-        return redirect(url_for("retry"))
+        print("Missing required scope, showing retry page...")
+        return render_template("retry.html")
 
     # If all required scopes are granted, proceed
     try:

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Retry Permissions</title>
+  </head>
+  <body>
+    <h1>Permission Required</h1>
+    <p>
+      It looks like you did not grant all the required permissions. Please try
+      again and ensure you provide all requested permissions.
+    </p>
+    <a href="{{ url_for('retry') }}">
+      <button>Retry</button>
+    </a>
+  </body>
+</html>
