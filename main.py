@@ -1,5 +1,5 @@
 import os
-from flask import Flask, redirect, url_for, session, jsonify, render_template
+from flask import Flask, redirect, url_for, session, request, jsonify, render_template
 from authlib.integrations.flask_client import OAuth
 import requests
 from dotenv import load_dotenv
@@ -24,63 +24,69 @@ app.config["GOOGLE_DISCOVERY_URL"] = "https://accounts.google.com/.well-known/op
 
 # Initialize OAuth client
 oauth = OAuth(app)
+
 google = oauth.register(
     name="google",
     client_id=app.config["GOOGLE_CLIENT_ID"],
     client_secret=app.config["GOOGLE_CLIENT_SECRET"],
     server_metadata_url=app.config["GOOGLE_DISCOVERY_URL"],
-    client_kwargs={"scope": "https://www.googleapis.com/auth/business.manage openid email profile"},
+    client_kwargs={"scope": "openid email profile"},  # Initial basic scopes
 )
-
-# Airtable Configuration (use environment variables for security)
-# Airtable Configuration (use environment variables for security)
-AIRTABLE_API_KEY = 'patrGInzrQiuBACnV.7283d83052558ebb51e72437c76cea77732bc61468461a86ef0a5f81fedaf1f0'
-AIRTABLE_BASE_ID = 'appgXzBGcdhiuervR'
-AIRTABLE_TABLE_NAME = 'All Merchants'
 
 @app.route("/")
 def index():
     return render_template("signin.html")
 
+# Step 1: Basic Sign-In (email, profile, openid)
 @app.route("/login")
 def login():
-    redirect_uri = url_for("authorize", _external=True)
-    return google.authorize_redirect(
-        redirect_uri,
-        prompt="consent",
-        access_type="offline",
-        include_granted_scopes="true",
-    )
+    redirect_uri = url_for("authorize_basic", _external=True)
+    return google.authorize_redirect(redirect_uri)
 
-@app.route("/authorize")
-def authorize():
+@app.route("/authorize-basic")
+def authorize_basic():
     token = google.authorize_access_token()
-    print("Token received:", token)  # Debugging
 
-    access_token = token.get("access_token")
-    refresh_token = token.get("refresh_token")  # For refreshing if needed
+    if not token or "access_token" not in token:
+        return jsonify({"error": "Failed to retrieve basic token"}), 400
 
-    if not access_token:
-        return jsonify({"error": "Access token is missing"}), 400
+    # Save the basic token to the session
+    session["basic_token"] = token["access_token"]
+    session["id_token"] = token.get("id_token")
 
+    # Redirect to request additional permissions
+    return redirect(url_for("request_additional_scopes"))
+
+# Step 2: Request Additional Scopes
+@app.route("/request-scopes")
+def request_additional_scopes():
+    # Request additional permissions
+    redirect_uri = url_for("authorize_additional", _external=True)
+    google_scopes = "https://www.googleapis.com/auth/business.manage"
+    return google.authorize_redirect(redirect_uri, scope=google_scopes)
+
+@app.route("/authorize-additional")
+def authorize_additional():
+    token = google.authorize_access_token()
+
+    if not token or "access_token" not in token:
+        return jsonify({"error": "Failed to retrieve additional token"}), 400
+
+    # Combine tokens if needed
+    session["full_token"] = token
+
+    # Fetch user info and GMB data
     try:
-        # Refresh the token if necessary
-        if refresh_token and not access_token:
-            access_token = refresh_access_token(refresh_token)
-
-        # Fetch user info
+        access_token = token["access_token"]
         user_info = fetch_user_info(access_token)
+        gmb_id = fetch_gmb_id(access_token)
+
         user_data = {
             "email": user_info.get("email"),
             "name": user_info.get("name"),
-            "token": token["id_token"],
+            "GoogleBusinessId": gmb_id,
         }
-        
-        # Fetch GMB ID and save user data
-        gmb_id = fetch_gmb_id({"access_token": access_token})
-        user_data["GoogleBusinessId"] = gmb_id
         save_to_airtable(user_data)
-
         return redirect(url_for("success"))
     except Exception as e:
         return jsonify({"error": "Error processing user data", "details": str(e)}), 500
@@ -89,37 +95,37 @@ def authorize():
 def success():
     return redirect("https://www.fiveoutta5.com/thank-you")
 
+# Fetch User Info
 def fetch_user_info(access_token):
     url = "https://www.googleapis.com/oauth2/v2/userinfo"
     headers = {"Authorization": f"Bearer {access_token}"}
-    print("Fetching user info with headers:", headers)  # Debugging
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
         return response.json()
-    elif response.status_code == 401:
-        raise Exception("Access token is invalid or expired. Please reauthenticate.")
-    else:
-        raise Exception(f"Failed to fetch user info: {response.text}")
+    raise Exception(f"Failed to fetch user info: {response.text}")
 
-def fetch_gmb_id(token):
+# Fetch Google My Business ID
+def fetch_gmb_id(access_token):
     url = "https://mybusinessbusinessinformation.googleapis.com/v1/accounts"
-    headers = {"Authorization": f"Bearer {token['access_token']}"}
+    headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.get(url, headers=headers)
-
     if response.status_code != 200:
         raise Exception(f"Error fetching GMB ID: {response.text}")
-
     data = response.json()
     if "accounts" in data:
-        business_account = data["accounts"][0]
-        return business_account.get("name")
+        return data["accounts"][0].get("name")
     return "No GMB ID found"
 
+# Save User Data to Airtable
 def save_to_airtable(user_data):
+    AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
+    AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID")
+    AIRTABLE_TABLE_NAME = "All Merchants"
+
     url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
     headers = {
         "Authorization": f"Bearer {AIRTABLE_API_KEY}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
     }
     payload = {
         "fields": {
@@ -127,27 +133,13 @@ def save_to_airtable(user_data):
             "Name": user_data["name"],
             "GoogleBusinessId": user_data["GoogleBusinessId"],
             "ReviewManagementAllowed": True,
-            "LeadSource": "Google Sign In"
+            "LeadSource": "Google Sign In",
         }
     }
     response = requests.post(url, json=payload, headers=headers)
     if response.status_code != 200:
         raise Exception(f"Error saving to Airtable: {response.text}")
     return response.json()
-
-def refresh_access_token(refresh_token):
-    url = "https://oauth2.googleapis.com/token"
-    payload = {
-        "client_id": app.config["GOOGLE_CLIENT_ID"],
-        "client_secret": app.config["GOOGLE_CLIENT_SECRET"],
-        "refresh_token": refresh_token,
-        "grant_type": "refresh_token"
-    }
-    response = requests.post(url, data=payload)
-    if response.status_code == 200:
-        return response.json().get("access_token")
-    else:
-        raise Exception(f"Failed to refresh token: {response.text}")
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
