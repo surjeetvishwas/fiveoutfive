@@ -1,12 +1,12 @@
 import os
-from flask import Flask, redirect, url_for, session, request, jsonify, render_template
+from flask import Flask, redirect, url_for, session, jsonify, render_template
 from authlib.integrations.flask_client import OAuth
 import requests
 from dotenv import load_dotenv
 from flask_talisman import Talisman
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
@@ -24,59 +24,73 @@ app.config["GOOGLE_DISCOVERY_URL"] = "https://accounts.google.com/.well-known/op
 
 # Initialize OAuth client
 oauth = OAuth(app)
-
 google = oauth.register(
     name="google",
     client_id=app.config["GOOGLE_CLIENT_ID"],
     client_secret=app.config["GOOGLE_CLIENT_SECRET"],
     server_metadata_url=app.config["GOOGLE_DISCOVERY_URL"],
-    client_kwargs={"scope": "openid email profile"},  # Initial basic scopes
+    client_kwargs={"scope": "openid email profile"},
 )
+
+# Airtable Configuration
+AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
+AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID")
+AIRTABLE_TABLE_NAME = os.getenv("AIRTABLE_TABLE_NAME")
 
 @app.route("/")
 def index():
     return render_template("signin.html")
 
-# Step 1: Basic Sign-In (email, profile, openid)
-@app.route("/login")
-def login():
+@app.route("/login-basic")
+def login_basic():
+    # Step 1: Request basic info (openid, email, profile)
     redirect_uri = url_for("authorize_basic", _external=True)
-    return google.authorize_redirect(redirect_uri)
+    return google.authorize_redirect(
+        redirect_uri,
+        prompt="consent",
+        access_type="offline",
+    )
 
 @app.route("/authorize-basic")
 def authorize_basic():
-    token = google.authorize_access_token()
+    # Handle basic login
+    try:
+        token = google.authorize_access_token()
+        if not token or "access_token" not in token:
+            raise Exception("Failed to retrieve access token")
 
-    if not token or "access_token" not in token:
-        return jsonify({"error": "Failed to retrieve basic token"}), 400
+        # Debugging tokens
+        print("Basic Token:", token)
 
-    # Save the basic token to the session
-    session["basic_token"] = token["access_token"]
-    session["id_token"] = token.get("id_token")
+        session["basic_token"] = token["access_token"]
+        session["id_token"] = token.get("id_token")
+        return redirect(url_for("request_additional_scopes"))
+    except Exception as e:
+        return jsonify({"error": "Error during basic authorization", "details": str(e)}), 500
 
-    # Redirect to request additional permissions
-    return redirect(url_for("request_additional_scopes"))
-
-# Step 2: Request Additional Scopes
-@app.route("/request-scopes")
+@app.route("/request-additional-scopes")
 def request_additional_scopes():
-    # Request additional permissions
-    redirect_uri = url_for("authorize_additional", _external=True)
-    google_scopes = "https://www.googleapis.com/auth/business.manage"
-    return google.authorize_redirect(redirect_uri, scope=google_scopes)
+    # Step 2: Request additional scopes
+    try:
+        redirect_uri = url_for("authorize_additional", _external=True)
+        return google.authorize_redirect(
+            redirect_uri,
+            client_kwargs={"scope": "https://www.googleapis.com/auth/business.manage"},
+        )
+    except Exception as e:
+        return jsonify({"error": "Error requesting additional scopes", "details": str(e)}), 500
 
 @app.route("/authorize-additional")
 def authorize_additional():
-    token = google.authorize_access_token()
-
-    if not token or "access_token" not in token:
-        return jsonify({"error": "Failed to retrieve additional token"}), 400
-
-    # Combine tokens if needed
-    session["full_token"] = token
-
-    # Fetch user info and GMB data
+    # Handle additional scopes
     try:
+        token = google.authorize_access_token()
+        if not token or "access_token" not in token:
+            raise Exception("Failed to retrieve additional access token")
+
+        # Debugging tokens
+        print("Additional Token:", token)
+
         access_token = token["access_token"]
         user_info = fetch_user_info(access_token)
         gmb_id = fetch_gmb_id(access_token)
@@ -95,8 +109,8 @@ def authorize_additional():
 def success():
     return redirect("https://www.fiveoutta5.com/thank-you")
 
-# Fetch User Info
 def fetch_user_info(access_token):
+    # Fetch user info
     url = "https://www.googleapis.com/oauth2/v2/userinfo"
     headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.get(url, headers=headers)
@@ -104,8 +118,8 @@ def fetch_user_info(access_token):
         return response.json()
     raise Exception(f"Failed to fetch user info: {response.text}")
 
-# Fetch Google My Business ID
 def fetch_gmb_id(access_token):
+    # Fetch GMB ID
     url = "https://mybusinessbusinessinformation.googleapis.com/v1/accounts"
     headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.get(url, headers=headers)
@@ -113,15 +127,11 @@ def fetch_gmb_id(access_token):
         raise Exception(f"Error fetching GMB ID: {response.text}")
     data = response.json()
     if "accounts" in data:
-        return data["accounts"][0].get("name")
+        return data["accounts"][0].get("name", "No GMB ID found")
     return "No GMB ID found"
 
-# Save User Data to Airtable
 def save_to_airtable(user_data):
-    AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
-    AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID")
-    AIRTABLE_TABLE_NAME = "All Merchants"
-
+    # Save user data to Airtable
     url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}"
     headers = {
         "Authorization": f"Bearer {AIRTABLE_API_KEY}",
