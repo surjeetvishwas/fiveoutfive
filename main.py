@@ -76,7 +76,8 @@ def request_additional_scopes():
         print(f"Redirect URI (Additional Scopes): {redirect_uri}")
         return google.authorize_redirect(
             redirect_uri,
-            client_kwargs={"scope": ["https://www.googleapis.com/auth/business.manage"]},
+           client_kwargs={"scope": "https://www.googleapis.com/auth/business.manage"},
+
         )
     except Exception as e:
         print("Error during additional scopes request:", str(e))
