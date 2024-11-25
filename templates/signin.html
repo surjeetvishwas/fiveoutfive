@@ -3,11 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sign In</title>
+    <title>Sign In with Google</title>
   </head>
   <body>
-    <h1>Welcome to FIVEoutta5</h1>
-    <p>Please sign in to continue:</p>
-    <a href="{{ url_for('login_basic') }}">Sign in with Google</a>
+    <h1>Sign In</h1>
+    <a href="{{ url_for('login') }}">
+      <button>Sign in with Google</button>
+    </a>
   </body>
 </html>
