@@ -73,11 +73,13 @@ def request_additional_scopes():
     # Step 2: Request additional scopes
     try:
         redirect_uri = url_for("authorize_additional", _external=True)
+        print(f"Redirect URI (Additional Scopes): {redirect_uri}")
         return google.authorize_redirect(
             redirect_uri,
-            client_kwargs={"scope": "https://www.googleapis.com/auth/business.manage"},
+            client_kwargs={"scope": ["https://www.googleapis.com/auth/business.manage"]},
         )
     except Exception as e:
+        print("Error during additional scopes request:", str(e))
         return jsonify({"error": "Error requesting additional scopes", "details": str(e)}), 500
 
 @app.route("/authorize-additional")
